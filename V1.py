@@ -23,12 +23,19 @@ def apply_custom_css():
             .stApp {
                 margin-top: -80px;
             }
-            /* Cache le spinner de chargement */
-            .stSpinner {
-                display: none !important;
+            /* Styles pour l'icône de chargement */
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .loading-icon {
+                animation: spin 1s linear infinite;
+                display: inline-block;
+                margin-right: 10px;
             }
         </style>
     """, unsafe_allow_html=True)
+
 
 try:
     import tiktoken
@@ -270,7 +277,6 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         }, "Non disponible en raison d'une erreur.", 0
 
 def main():
-    # Appliquer le CSS personnalisé
     apply_custom_css()
     
     st.title("🏛️ View Avocats - Estimateur de devis")
@@ -286,14 +292,10 @@ def main():
                 with analysis_placeholder:
                     st.markdown("""
                     <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                        <div style="width: 50px; height: 50px;" class="stSpinner">
-                            <svg width="50" height="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,1,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
-                                <path d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z">
-                                    <animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
-                                </path>
-                            </svg>
-                        </div>
+                        <svg class="loading-icon" width="50" height="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,1,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
+                            <path d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z"/>
+                        </svg>
                         <p style="margin-top: 10px; font-weight: bold;">Notre IA surpuissante analyse votre cas juridique...</p>
                         <p>Préparez-vous à découvrir une analyse juridique révolutionnaire !</p>
                     </div>
