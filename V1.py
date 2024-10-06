@@ -6,6 +6,8 @@ import logging
 from typing import Tuple, Dict, Any
 import importlib.util
 
+st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
+
 # Fonction pour appliquer le CSS personnalisé
 def apply_custom_css():
     st.markdown("""
@@ -15,6 +17,7 @@ def apply_custom_css():
             header {visibility: hidden;}
         </style>
     """, unsafe_allow_html=True)
+
     
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -222,7 +225,6 @@ def main():
     # Appliquer le CSS personnalisé
     apply_custom_css()
     
-    st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
     st.title("🏛️ View Avocats - Estimateur de devis")
 
     client_type = st.selectbox("Vous êtes :", ("Particulier", "Professionnel", "Société"))
