@@ -199,74 +199,88 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         }, "Non disponible en raison d'une erreur."
 
 def main():
-    st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
-    st.title("🏛️ View Avocats - Estimateur de devis")
+    st.set_page_config(page_title="View Avocats - Devis IA en ligne", page_icon="⚖️", layout="wide")
+    st.title("🏛️ View Avocats - Estimateur de Devis Propulsé par l'IA")
+    
+    st.markdown("""
+    ### Découvrez la puissance de l'IA juridique !
+    Notre estimateur de devis utilise une intelligence artificielle de pointe pour analyser votre situation 
+    et vous fournir une estimation personnalisée en quelques secondes.
+    """)
 
     client_type = st.selectbox("Vous êtes :", ("Particulier", "Professionnel", "Société"))
     urgency = st.selectbox("Degré d'urgence :", ("Normal", "Urgent"))
-    question = st.text_area("Expliquez brièvement votre cas :", height=150)
+    question = st.text_area("Décrivez votre cas juridique et laissez notre IA faire le reste :", height=150,
+                            help="Plus vous fournissez de détails, plus notre IA sera précise dans son analyse.")
 
-    if st.button("Obtenir une estimation"):
+    if st.button("Lancer l'analyse IA"):
         if question:
             try:
-                with st.spinner("Analyse en cours..."):
+                with st.spinner("🤖 Notre IA juridique analyse votre cas..."):
                     domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
 
                 if is_relevant:
                     estimation_basse, estimation_haute, calcul_details, tarifs_utilises = calculate_estimate(domaine, prestation, urgency)
                     detailed_analysis, elements_used, sources = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
 
-                    st.success("Analyse terminée. Voici les résultats :")
+                    st.success("🎉 Analyse IA terminée avec succès ! Voici vos résultats personnalisés :")
                     
-                    st.subheader("Indice de confiance de l'analyse")
+                    st.subheader("🧠 Indice de confiance de l'IA")
                     st.progress(confidence)
-                    st.write(f"Confiance : {confidence:.2%}")
+                    st.write(f"Confiance de l'IA : {confidence:.2%}")
 
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.subheader("Résumé de l'estimation")
-                        st.write(f"**Domaine juridique :** {domaine}")
-                        st.write(f"**Prestation :** {prestation}")
-                        st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
+                        st.subheader("💡 Résumé de l'estimation IA")
+                        st.write(f"**Domaine juridique identifié :** {domaine}")
+                        st.write(f"**Prestation recommandée par l'IA :** {prestation}")
+                        st.write(f"**Estimation IA :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
                         
-                        st.subheader("Détails du calcul")
+                        st.subheader("🔍 Détails du calcul IA")
                         for detail in calcul_details:
                             st.write(detail)
 
                     with col2:
-                        st.subheader("Éléments tarifaires utilisés")
+                        st.subheader("💼 Éléments tarifaires analysés par l'IA")
                         st.json(tarifs_utilises)
 
-                        st.subheader("Éléments spécifiques pris en compte")
+                        st.subheader("🧩 Éléments spécifiques identifiés par l'IA")
                         if isinstance(elements_used, dict) and "domaine" in elements_used and "prestation" in elements_used:
                             st.json(elements_used)
                         else:
-                            st.warning("Les éléments spécifiques n'ont pas pu être analysés de manière optimale.")
+                            st.warning("Notre IA n'a pas pu analyser tous les éléments de manière optimale.")
                             st.json(elements_used)
 
-                    st.subheader("Analyse détaillée")
+                    st.subheader("📊 Analyse détaillée de l'IA")
                     st.write(detailed_analysis)
 
                     if sources and sources != "Aucune source spécifique mentionnée.":
-                        st.subheader("Sources d'information")
+                        st.subheader("📚 Sources d'information utilisées par l'IA")
                         st.write(sources)
 
                     st.markdown("---")
-                    st.markdown("### 💡 Alternative Recommandée")
-                    st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
+                    st.markdown("### 💡 Recommandation IA")
+                    st.info("**Consultation initiale d'une heure avec un avocat expert** - Tarif fixe : 100 € HT")
 
                 else:
-                    st.warning("Malheureusement, je n'ai pas été en mesure d'identifier votre problème juridique de manière précise. Vous pouvez toutefois contacter directement le cabinet View Avocats par mail ou par téléphone au numéro suivant : [insérez le numéro ici]")
-                    st.info("Pour une assistance plus personnalisée, n'hésitez pas à nous contacter directement.")
+                    st.warning("🤔 Notre IA a rencontré des difficultés pour analyser précisément votre cas juridique.")
+                    st.info("👨‍⚖️ Pour une assistance personnalisée, nous vous recommandons de contacter directement le cabinet View Avocats par email ou par téléphone au [insérez le numéro ici]. Nos experts humains seront ravis de vous aider !")
 
             except Exception as e:
-                st.error(f"Une erreur s'est produite : {str(e)}")
-                logger.exception("Erreur dans le processus d'estimation")
+                st.error(f"Une erreur inattendue s'est produite dans notre système IA : {str(e)}")
+                logger.exception("Erreur dans le processus d'estimation IA")
         else:
-            st.warning("Veuillez décrire votre cas avant de demander une estimation.")
+            st.warning("⚠️ Veuillez décrire votre cas pour que notre IA puisse l'analyser.")
 
     st.markdown("---")
-    st.write("© 2024 View Avocats. Tous droits réservés.")
+    st.markdown("""
+    ### Pourquoi choisir notre estimateur IA ?
+    - **Rapide** : Obtenez une estimation en quelques secondes
+    - **Précis** : Notre IA est entraînée sur des milliers de cas juridiques
+    - **Disponible 24/7** : Accédez à une expertise juridique à tout moment
+    - **Innovant** : Bénéficiez des dernières avancées en IA juridique
+    """)
+    st.write("© 2024 View Avocats. Tous droits réservés. Propulsé par l'IA de pointe.")
 
 if __name__ == "__main__":
     main()
