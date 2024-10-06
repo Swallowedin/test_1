@@ -69,9 +69,9 @@ def check_response_relevance(response: str, options: list) -> bool:
     response_lower = response.lower()
     return any(option.lower().split(':')[0].strip() in response_lower for option in options)
 
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool]:
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool, bool]:
     options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
-    prompt = f"""Analysez la question suivante et identifiez le domaine juridique et la prestation la plus pertinente.
+    prompt = f"""Analysez la question suivante et déterminez si elle concerne un problème juridique. Si c'est le cas, identifiez le domaine juridique et la prestation la plus pertinente.
 
 Question : {question}
 Type de client : {client_type}
@@ -80,17 +80,27 @@ Degré d'urgence : {urgency}
 Options de domaines et prestations :
 {' '.join(options)}
 
-Répondez avec le domaine et la prestation la plus pertinente, séparés par une virgule."""
+Répondez au format suivant :
+1. Est-ce un problème juridique ? (Oui/Non)
+2. Si oui, indiquez le domaine et la prestation, séparés par une virgule.
+3. Si non, expliquez brièvement pourquoi ce n'est pas un problème juridique.
+"""
 
     response, confidence = get_openai_response(prompt)
+    lines = response.split('\n')
     
-    is_relevant = check_response_relevance(response, options)
+    is_legal = lines[0].lower().strip() == "oui"
     
-    if is_relevant:
-        domain, service = response.split(',', 1) if ',' in response else (response, "prestation générale")
-        return domain.strip(), service.strip(), confidence, True
+    if is_legal:
+        domain, service = lines[1].split(',', 1) if len(lines) > 1 and ',' in lines[1] else ("", "")
+        is_relevant = check_response_relevance(lines[1], options)
     else:
-        return "", "", confidence, False
+        domain, service = "", ""
+        is_relevant = False
+        confidence = min(confidence, 0.4)  # Limite la confiance à 40% pour les sujets non juridiques
+    
+    return domain.strip(), service.strip(), confidence, is_relevant, is_legal
+
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int, int, list, Dict[str, Any]]:
     try:
@@ -209,10 +219,7 @@ def main():
     if st.button("Obtenir une estimation"):
         if question:
             try:
-                # Création d'un placeholder pour l'animation
                 analysis_placeholder = st.empty()
-                
-                # Affichage de l'icône animée et du message pendant l'analyse
                 with analysis_placeholder:
                     st.markdown("""
                     <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
@@ -229,13 +236,14 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
                 
-                # Exécution de l'analyse
-                domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
-                
-                # Suppression de l'animation une fois l'analyse terminée
+                domaine, prestation, confidence, is_relevant, is_legal = analyze_question(question, client_type, urgency)
                 analysis_placeholder.empty()
 
-                if is_relevant:
+                if not is_legal:
+                    st.warning("⚠️ Attention : Votre question ne semble pas concerner un problème juridique ou a peut-être été mal formulée. Notre IA est dubitative sur la nature juridique de votre demande.")
+                    st.info("Malgré cela, nous allons tenter de vous fournir une réponse, mais veuillez noter que notre analyse pourrait ne pas être entièrement adaptée à votre situation.")
+
+                if is_relevant or not is_legal:
                     estimation_basse, estimation_haute, calcul_details, tarifs_utilises = calculate_estimate(domaine, prestation, urgency)
                     detailed_analysis, elements_used, sources = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
 
@@ -248,8 +256,8 @@ def main():
                     col1, col2 = st.columns(2)
                     with col1:
                         st.subheader("Résumé de l'estimation")
-                        st.write(f"**Domaine juridique :** {domaine}")
-                        st.write(f"**Prestation :** {prestation}")
+                        st.write(f"**Domaine juridique :** {domaine if domaine else 'Non déterminé'}")
+                        st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
                         st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
                         
                         st.subheader("Détails du calcul")
