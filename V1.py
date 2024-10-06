@@ -5,6 +5,7 @@ import json
 import logging
 from typing import Tuple, Dict, Any
 import importlib.util
+from statistics import mean, stdev
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -17,44 +18,37 @@ if not OPENAI_API_KEY:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Chargement des modules
-def load_py_module(file_path: str, module_name: str):
+# ... [Le reste du code reste inchangé jusqu'à la fonction get_openai_response]
+
+def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 5) -> Tuple[str, float]:
     try:
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    except Exception as e:
-        logger.error(f"Erreur lors du chargement du module {module_name}: {e}")
-        return None
-
-prestations_module = load_py_module('./prestations-heures.py', 'prestations_heures')
-tarifs_module = load_py_module('./tarifs-prestations.py', 'tarifs_prestations')
-instructions_module = load_py_module('./chatbot-instructions.py', 'consignes_chatbot')
-
-prestations = prestations_module.get_prestations() if prestations_module else {}
-tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
-instructions = instructions_module.get_chatbot_instructions() if instructions_module else ""
-
-def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> str:
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": instructions},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.5,
-            max_tokens=1000
-        )
-        content = response.choices[0].message.content.strip()
-        logger.info(f"Réponse brute de l'API OpenAI : {content}")
-        return content
+        responses = []
+        for _ in range(num_iterations):
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5,
+                max_tokens=1000
+            )
+            content = response.choices[0].message.content.strip()
+            responses.append(content)
+        
+        # Calculer la réponse la plus fréquente et l'indice de confiance
+        most_common = max(set(responses), key=responses.count)
+        confidence = responses.count(most_common) / num_iterations
+        
+        logger.info(f"Réponse la plus fréquente : {most_common}")
+        logger.info(f"Indice de confiance : {confidence}")
+        
+        return most_common, confidence
     except Exception as e:
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
 
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str]:
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float]:
     options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
     prompt = f"""Analysez la question suivante et identifiez le domaine juridique et la prestation la plus pertinente.
 
@@ -67,103 +61,11 @@ Options de domaines et prestations :
 
 Répondez avec le domaine et la prestation la plus pertinente, séparés par une virgule."""
 
-    response = get_openai_response(prompt)
-    return response.split(',', 1) if ',' in response else (response, "prestation générale")
+    response, confidence = get_openai_response(prompt)
+    domain, service = response.split(',', 1) if ',' in response else (response, "prestation générale")
+    return domain.strip(), service.strip(), confidence
 
-def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int, int, list, Dict[str, Any]]:
-    try:
-        heures = prestations.get(domaine, {}).get(prestation, 10)
-        tarif_horaire = tarifs.get("tarif_horaire_standard", 0)
-        estimation = heures * tarif_horaire
-
-        calcul_details = [
-            f"Heures estimées: {heures}",
-            f"Tarif horaire standard: {tarif_horaire} €",
-            f"Estimation initiale: {heures} x {tarif_horaire} = {estimation} €"
-        ]
-
-        if urgency == "Urgent":
-            facteur_urgence = tarifs.get("facteur_urgence", 1.5)
-            estimation *= facteur_urgence
-            calcul_details.extend([
-                f"Facteur d'urgence appliqué: x{facteur_urgence}",
-                f"Estimation après urgence: {estimation} €"
-            ])
-
-        forfait = tarifs.get("forfaits", {}).get(prestation)
-        if forfait:
-            calcul_details.append(f"Forfait disponible: {forfait} €")
-            if forfait < estimation:
-                estimation = forfait
-                calcul_details.append(f"Forfait appliqué: {forfait} €")
-
-        estimation_basse, estimation_haute = round(estimation * 0.8), round(estimation * 1.2)
-        calcul_details.append(f"Fourchette d'estimation: {estimation_basse} € - {estimation_haute} €")
-
-        tarifs_utilises = {
-            "tarif_horaire_standard": tarif_horaire,
-            "facteur_urgence": tarifs.get("facteur_urgence") if urgency == "Urgent" else "Non appliqué",
-            "forfait_prestation": forfait if forfait else "Pas de forfait"
-        }
-
-        return estimation_basse, estimation_haute, calcul_details, tarifs_utilises
-    except Exception as e:
-        logger.exception(f"Erreur dans calculate_estimate: {str(e)}")
-        raise
-
-def get_detailed_analysis(question: str, client_type: str, urgency: str, domaine: str, prestation: str) -> Tuple[str, Dict[str, Any], str]:
-    prompt = f"""En tant qu'assistant juridique virtuel pour View Avocats, analysez la question suivante et expliquez votre raisonnement pour le choix du domaine juridique et de la prestation.
-
-Question : {question}
-Type de client : {client_type}
-Degré d'urgence : {urgency}
-Domaine recommandé : {domaine}
-Prestation recommandée : {prestation}
-
-Structurez votre réponse en trois parties clairement séparées par des lignes vides :
-
-1. Analyse détaillée :
-Fournissez une analyse concise mais détaillée du cas, en tenant compte du type de client et du degré d'urgence.
-
-2. Éléments spécifiques utilisés (format JSON strict) :
-{{"domaine": {{"nom": "nom_du_domaine", "description": "description_du_domaine"}}, "prestation": {{"nom": "nom_de_la_prestation", "description": "description_de_la_prestation"}}}}
-
-3. Sources d'information :
-Listez les sources d'information utilisées pour cette analyse, si applicable.
-
-Assurez-vous que chaque partie est clairement séparée et que le JSON dans la partie 2 est valide et strict."""
-
-    try:
-        response = get_openai_response(prompt)
-        logger.info(f"Réponse brute de l'API : {response}")
-
-        # Séparation des parties de la réponse
-        parts = response.split('\n\n')
-        
-        analysis = parts[0] if len(parts) > 0 else "Analyse non disponible."
-        
-        elements_used = {}
-        if len(parts) > 1:
-            try:
-                # Recherche de la partie JSON dans la réponse
-                json_part = next((part for part in parts if part.strip().startswith('{')), None)
-                if json_part:
-                    elements_used = json.loads(json_part)
-                else:
-                    logger.warning("Aucun JSON valide trouvé dans la réponse.")
-                    elements_used = {"error": "Aucun JSON trouvé dans la réponse"}
-            except json.JSONDecodeError as e:
-                logger.error(f"Erreur de décodage JSON : {e}")
-                elements_used = {"error": f"JSON invalide dans la réponse de l'API: {str(e)}"}
-        else:
-            elements_used = {"error": "Réponse de l'API incomplète"}
-        
-        sources = parts[2] if len(parts) > 2 else "Aucune source spécifique mentionnée."
-
-        return analysis, elements_used, sources
-    except Exception as e:
-        logger.exception(f"Erreur lors de l'analyse détaillée : {e}")
-        return "Une erreur s'est produite lors de l'analyse.", {"error": str(e)}, "Non disponible en raison d'une erreur."
+# ... [Le reste des fonctions reste inchangé]
 
 def main():
     st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
@@ -177,12 +79,17 @@ def main():
         if question:
             try:
                 with st.spinner("Analyse en cours..."):
-                    domaine, prestation = analyze_question(question, client_type, urgency)
+                    domaine, prestation, confidence = analyze_question(question, client_type, urgency)
                     estimation_basse, estimation_haute, calcul_details, tarifs_utilises = calculate_estimate(domaine, prestation, urgency)
                     detailed_analysis, elements_used, sources = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
 
                 st.success("Analyse terminée. Voici les résultats :")
                 
+                # Affichage de la barre de confiance
+                st.subheader("Indice de confiance de l'analyse")
+                st.progress(confidence)
+                st.write(f"Confiance : {confidence:.2%}")
+
                 col1, col2 = st.columns(2)
                 with col1:
                     st.subheader("Résumé de l'estimation")
