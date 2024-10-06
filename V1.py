@@ -126,20 +126,16 @@ Répondez au format JSON strict suivant :
     # Calcul de la cohérence des réponses
     is_legal_count = Counter(r['est_juridique'] for r in results)
     domains = Counter(r['domaine'] for r in results if r['est_juridique'])
-    prestations = Counter(r['prestation'] for r in results if r['est_juridique'])
-    
-    is_legal_count = Counter(r['est_juridique'] for r in results)
-    domains = Counter(r['domaine'] for r in results if r['est_juridique'])
-    prestations = Counter(r['prestation'] for r in results if r['est_juridique'])
+    prestations_count = Counter(r['prestation'] for r in results if r['est_juridique'])
     
     is_legal = is_legal_count[True] > is_legal_count[False]
     domain = domains.most_common(1)[0][0] if domains else ""
-    service = prestations.most_common(1)[0][0] if prestations else ""
+    service = prestations_count.most_common(1)[0][0] if prestations_count else ""
     
     # Calcul de l'indice de confiance
     consistency = (is_legal_count[is_legal] / len(results) +
                    (domains[domain] / len(results) if domain else 0) +
-                   (prestations[service] / len(results) if service else 0)) / 3
+                   (prestations_count[service] / len(results) if service else 0)) / 3
     
     avg_confidence = sum(r['indice_confiance'] for r in results) / len(results)
     
@@ -250,7 +246,8 @@ Listez les sources d'information utilisées pour cette analyse, si applicable.
 Assurez-vous que chaque partie est clairement séparée et que le JSON dans la partie 2 est valide et strict."""
 
     try:
-        response, _, tokens_used = get_openai_response(prompt)
+        responses, tokens_used = get_openai_response(prompt)
+        response = responses[0] if responses else ""
         logger.info(f"Réponse brute de l'API : {response}")
 
         parts = response.split('\n\n')
@@ -290,7 +287,7 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         return "Une erreur s'est produite lors de l'analyse.", {
             "domaine": {"nom": domaine, "description": "Erreur dans l'analyse"},
             "prestation": {"nom": prestation, "description": "Erreur dans l'analyse"}
-        }, "Non disponible en raison d'une erreur."
+        }, "Non disponible en raison d'une erreur.", 0
 
 def main():
     # Appliquer le CSS personnalisé
