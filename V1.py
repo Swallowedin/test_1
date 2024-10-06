@@ -64,7 +64,7 @@ prestations = prestations_module.get_prestations() if prestations_module else {}
 tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
 instructions = instructions_module.get_chatbot_instructions() if instructions_module else ""
 
-def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 5) -> Tuple[str, float, int]:
+def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 5) -> Tuple[list, int]:
     try:
         responses = []
         total_tokens = 0
@@ -75,25 +75,79 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
                     {"role": "system", "content": instructions},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=1000  # Set the token limit to 1000
+                temperature=0.3,
+                max_tokens=4000
             )
             content = response.choices[0].message.content.strip()
             responses.append(content)
             total_tokens += response.usage.total_tokens
         
-        # Calculer la réponse la plus fréquente et l'indice de confiance
-        most_common = max(set(responses), key=responses.count)
-        confidence = responses.count(most_common) / num_iterations
-        
-        logger.info(f"Réponse la plus fréquente : {most_common}")
-        logger.info(f"Indice de confiance : {confidence}")
         logger.info(f"Nombre total de tokens utilisés : {total_tokens}")
         
-        return most_common, confidence, total_tokens
+        return responses, total_tokens
     except Exception as e:
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
+
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool, int]:
+    options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
+    prompt = f"""Analysez la question suivante et déterminez si elle concerne un problème juridique. Si c'est le cas, identifiez le domaine juridique et la prestation la plus pertinente.
+
+Question : {question}
+Type de client : {client_type}
+Degré d'urgence : {urgency}
+
+Options de domaines et prestations :
+{' '.join(options)}
+
+Répondez au format JSON strict suivant :
+{{
+    "est_juridique": true/false,
+    "domaine": "nom du domaine juridique",
+    "prestation": "nom de la prestation",
+    "explication": "Brève explication de votre analyse",
+    "indice_confiance": 0.0 à 1.0
+}}
+"""
+
+    responses, tokens_used = get_openai_response(prompt)
+    
+    results = []
+    for response in responses:
+        try:
+            result = json.loads(response)
+            results.append(result)
+        except json.JSONDecodeError:
+            logger.error("Erreur de décodage JSON dans la réponse de l'API")
+    
+    if not results:
+        return "", "", 0.0, False, tokens_used
+
+    # Calcul de la cohérence des réponses
+    is_legal_count = Counter(r['est_juridique'] for r in results)
+    domains = Counter(r['domaine'] for r in results if r['est_juridique'])
+    prestations = Counter(r['prestation'] for r in results if r['est_juridique'])
+    
+    is_legal_count = Counter(r['est_juridique'] for r in results)
+    domains = Counter(r['domaine'] for r in results if r['est_juridique'])
+    prestations = Counter(r['prestation'] for r in results if r['est_juridique'])
+    
+    is_legal = is_legal_count[True] > is_legal_count[False]
+    domain = domains.most_common(1)[0][0] if domains else ""
+    service = prestations.most_common(1)[0][0] if prestations else ""
+    
+    # Calcul de l'indice de confiance
+    consistency = (is_legal_count[is_legal] / len(results) +
+                   (domains[domain] / len(results) if domain else 0) +
+                   (prestations[service] / len(results) if service else 0)) / 3
+    
+    avg_confidence = sum(r['indice_confiance'] for r in results) / len(results)
+    
+    final_confidence = (consistency + avg_confidence) / 2
+    
+    is_relevant = is_legal and domain in prestations and service in prestations[domain]
+    
+    return domain, service, final_confidence, is_relevant, tokens_used
 
 def check_response_relevance(response: str, options: list) -> bool:
     response_lower = response.lower()
@@ -257,7 +311,7 @@ def main():
                     <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
                         <div style="width: 50px; height: 50px;" class="stSpinner">
                             <svg width="50" height="50" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
+                                <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,1,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
                                 <path d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z">
                                     <animateTransform attributeName="transform" type="rotate" dur="0.75s" values="0 12 12;360 12 12" repeatCount="indefinite"/>
                                 </path>
@@ -268,27 +322,22 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
                 
-                domaine, prestation, confidence, is_relevant, is_legal, tokens_used_analysis = analyze_question(question, client_type, urgency)
+                domaine, prestation, confidence, is_relevant, tokens_used_analysis = analyze_question(question, client_type, urgency)
                 analysis_placeholder.empty()
 
-                if not is_legal:
-                    st.warning("⚠️ Attention : Votre question ne semble pas concerner un problème juridique ou a peut-être été mal formulée. Notre IA est dubitative sur la nature juridique de votre demande.")
-                    st.info("Malgré cela, nous allons tenter de vous fournir une réponse, mais veuillez noter que notre analyse pourrait ne pas être entièrement adaptée à votre situation.")
+                if confidence < 0.5:
+                    st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
+                elif not is_relevant:
+                    st.info("Votre question semble être d'ordre juridique, mais ne correspond pas précisément à nos prestations prédéfinies. Nous allons tout de même tenter de vous fournir une estimation générale.")
 
-                if is_relevant or not is_legal:
-                    estimation_basse, estimation_haute, calcul_details, tarifs_utilises = calculate_estimate(domaine, prestation, urgency)
-                    detailed_analysis, elements_used, sources, tokens_used_detailed = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
+                estimation_basse, estimation_haute, calcul_details, tarifs_utilises = calculate_estimate(domaine, prestation, urgency)
+                detailed_analysis, elements_used, sources, tokens_used_detailed = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
 
-                    st.subheader("Utilisation des tokens")
-                    st.write(f"Tokens utilisés pour l'analyse initiale : {tokens_used_analysis}")
-                    st.write(f"Tokens utilisés pour l'analyse détaillée : {tokens_used_detailed}")
-                    st.write(f"Total des tokens utilisés : {tokens_used_analysis + tokens_used_detailed}")
-                    
-                    st.success("Analyse terminée. Voici les résultats :")
-                    
-                    st.subheader("Indice de confiance de l'analyse")
-                    st.progress(confidence)
-                    st.write(f"Confiance : {confidence:.2%}")
+                st.success("Analyse terminée. Voici les résultats :")
+                
+                st.subheader("Indice de confiance de l'analyse")
+                st.progress(confidence)
+                st.write(f"Confiance : {confidence:.2%}")
 
                     col1, col2 = st.columns(2)
                     with col1:
@@ -296,6 +345,16 @@ def main():
                         st.write(f"**Domaine juridique :** {domaine if domaine else 'Non déterminé'}")
                         st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
                         st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
+                        st.subheader("Utilisation des tokens")
+                st.write(f"Tokens utilisés pour l'analyse initiale : {tokens_used_analysis}")
+                st.write(f"Tokens utilisés pour l'analyse détaillée : {tokens_used_detailed}")
+                st.write(f"Total des tokens utilisés : {tokens_used_analysis + tokens_used_detailed}")
+
+            except Exception as e:
+                st.error(f"Une erreur s'est produite : {str(e)}")
+                logger.exception("Erreur dans le processus d'estimation")
+        else:
+            st.warning("Veuillez décrire votre cas avant de demander une estimation.")
                         
                         st.subheader("Détails du calcul")
                         for detail in calcul_details:
