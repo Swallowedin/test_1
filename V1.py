@@ -65,7 +65,11 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
 
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float]:
+def check_response_relevance(response: str, options: list) -> bool:
+    response_lower = response.lower()
+    return any(option.lower().split(':')[0].strip() in response_lower for option in options)
+
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool]:
     options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
     prompt = f"""Analysez la question suivante et identifiez le domaine juridique et la prestation la plus pertinente.
 
@@ -79,8 +83,14 @@ Options de domaines et prestations :
 Répondez avec le domaine et la prestation la plus pertinente, séparés par une virgule."""
 
     response, confidence = get_openai_response(prompt)
-    domain, service = response.split(',', 1) if ',' in response else (response, "prestation générale")
-    return domain.strip(), service.strip(), confidence
+    
+    is_relevant = check_response_relevance(response, options)
+    
+    if is_relevant:
+        domain, service = response.split(',', 1) if ',' in response else (response, "prestation générale")
+        return domain.strip(), service.strip(), confidence, True
+    else:
+        return "", "", confidence, False
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int, int, list, Dict[str, Any]]:
     try:
@@ -149,7 +159,6 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         response, _ = get_openai_response(prompt)
         logger.info(f"Réponse brute de l'API : {response}")
 
-        # Séparation des parties de la réponse
         parts = response.split('\n\n')
         
         analysis = parts[0] if len(parts) > 0 else "Analyse non disponible."
@@ -157,10 +166,8 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         elements_used = {}
         if len(parts) > 1:
             try:
-                # Recherche de la partie JSON dans la réponse
                 json_part = next((part for part in parts if '{' in part and '}' in part), None)
                 if json_part:
-                    # Extraction du JSON de la partie trouvée
                     json_str = json_part[json_part.index('{'):json_part.rindex('}')+1]
                     elements_used = json.loads(json_str)
                 else:
@@ -190,6 +197,7 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
             "domaine": {"nom": domaine, "description": "Erreur dans l'analyse"},
             "prestation": {"nom": prestation, "description": "Erreur dans l'analyse"}
         }, "Non disponible en raison d'une erreur."
+
 def main():
     st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
     st.title("🏛️ View Avocats - Estimateur de devis")
@@ -202,50 +210,54 @@ def main():
         if question:
             try:
                 with st.spinner("Analyse en cours..."):
-                    domaine, prestation, confidence = analyze_question(question, client_type, urgency)
+                    domaine, prestation, confidence, is_relevant = analyze_question(question, client_type, urgency)
+
+                if is_relevant:
                     estimation_basse, estimation_haute, calcul_details, tarifs_utilises = calculate_estimate(domaine, prestation, urgency)
                     detailed_analysis, elements_used, sources = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
 
-                st.success("Analyse terminée. Voici les résultats :")
-                
-                # Affichage de la barre de confiance
-                st.subheader("Indice de confiance de l'analyse")
-                st.progress(confidence)
-                st.write(f"Confiance : {confidence:.2%}")
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.subheader("Résumé de l'estimation")
-                    st.write(f"**Domaine juridique :** {domaine}")
-                    st.write(f"**Prestation :** {prestation}")
-                    st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
+                    st.success("Analyse terminée. Voici les résultats :")
                     
-                    st.subheader("Détails du calcul")
-                    for detail in calcul_details:
-                        st.write(detail)
+                    st.subheader("Indice de confiance de l'analyse")
+                    st.progress(confidence)
+                    st.write(f"Confiance : {confidence:.2%}")
 
-                with col2:
-                    st.subheader("Éléments tarifaires utilisés")
-                    st.json(tarifs_utilises)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.subheader("Résumé de l'estimation")
+                        st.write(f"**Domaine juridique :** {domaine}")
+                        st.write(f"**Prestation :** {prestation}")
+                        st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
+                        
+                        st.subheader("Détails du calcul")
+                        for detail in calcul_details:
+                            st.write(detail)
 
-                    st.subheader("Éléments spécifiques pris en compte")
-                    if isinstance(elements_used, dict) and "error" not in elements_used:
-                        st.json(elements_used)
-                    else:
-                        st.warning("Les éléments spécifiques n'ont pas pu être analysés correctement.")
-                        if "error" in elements_used:
-                            st.error(f"Erreur : {elements_used['error']}")
+                    with col2:
+                        st.subheader("Éléments tarifaires utilisés")
+                        st.json(tarifs_utilises)
 
-                st.subheader("Analyse détaillée")
-                st.write(detailed_analysis)
+                        st.subheader("Éléments spécifiques pris en compte")
+                        if isinstance(elements_used, dict) and "domaine" in elements_used and "prestation" in elements_used:
+                            st.json(elements_used)
+                        else:
+                            st.warning("Les éléments spécifiques n'ont pas pu être analysés de manière optimale.")
+                            st.json(elements_used)
 
-                if sources and sources != "Aucune source spécifique mentionnée.":
-                    st.subheader("Sources d'information")
-                    st.write(sources)
+                    st.subheader("Analyse détaillée")
+                    st.write(detailed_analysis)
 
-                st.markdown("---")
-                st.markdown("### 💡 Alternative Recommandée")
-                st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
+                    if sources and sources != "Aucune source spécifique mentionnée.":
+                        st.subheader("Sources d'information")
+                        st.write(sources)
+
+                    st.markdown("---")
+                    st.markdown("### 💡 Alternative Recommandée")
+                    st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
+
+                else:
+                    st.warning("Malheureusement, je n'ai pas été en mesure d'identifier votre problème juridique de manière précise. Vous pouvez toutefois contacter directement le cabinet View Avocats par mail ou par téléphone au numéro suivant : [insérez le numéro ici]")
+                    st.info("Pour une assistance plus personnalisée, n'hésitez pas à nous contacter directement.")
 
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {str(e)}")
