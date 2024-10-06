@@ -7,7 +7,7 @@ from typing import Tuple, Dict, Any
 import importlib.util
 from collections import Counter
 
-st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
 # Fonction pour appliquer le CSS personnalisé
 def apply_custom_css():
@@ -291,11 +291,11 @@ def main():
     
     st.title("🏛️ View Avocats - Estimateur de devis")
 
-    client_type = st.selectbox("Vous êtes :", ("Particulier", "Professionnel", "Société"))
+    client_type = st.selectbox("Vous êtes :", ("Particulier", "Entreprise"))
     urgency = st.selectbox("Degré d'urgence :", ("Normal", "Urgent"))
-    question = st.text_area("Expliquez brièvement votre cas :", height=150)
+    question = st.text_area("Expliquez brièvement votre cas, notre intelligence artificielle s'occupe du reste !", height=150)
 
-    if st.button("Obtenir une estimation"):
+    if st.button("Obtenir une estimation grâce à l'intelligence articielle"):
         if question:
             try:
                 loading_placeholder = st.empty()
@@ -320,7 +320,7 @@ def main():
                 if confidence < 0.5:
                     st.warning("⚠️ Attention : Notre IA a eu des difficultés à analyser votre question avec certitude. L'estimation suivante peut manquer de précision.")
                 elif not is_relevant:
-                    st.info("Votre question semble être d'ordre juridique, mais ne correspond pas précisément à nos prestations prédéfinies. Nous allons tout de même tenter de vous fournir une estimation générale.")
+                    st.info("Nous ne sommes pas sûr qu'il s'agisse d'une question d'ordre juridique. Nous allons tout de même tenter de vous fournir une estimation indicative.")
 
                 col1, col2 = st.columns(2)
                 with col1:
