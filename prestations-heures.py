@@ -21,6 +21,7 @@ def get_prestations():
             "propriété_intellectuelle": 20
         },
         "droit_immobilier": {
+            "rédaction_bail_commercial": 10,
             "rédaction_bail_locatif": 6,
             "transaction_immobilière": 15,
             "litige_locatif": 12,
