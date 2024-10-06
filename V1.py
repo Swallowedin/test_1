@@ -28,7 +28,11 @@ def apply_custom_css():
             }
         </style>
     """, unsafe_allow_html=True)
-    
+
+def count_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -60,9 +64,10 @@ prestations = prestations_module.get_prestations() if prestations_module else {}
 tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
 instructions = instructions_module.get_chatbot_instructions() if instructions_module else ""
 
-def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 5) -> Tuple[str, float]:
+def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 5) -> Tuple[str, float, int]:
     try:
         responses = []
+        total_tokens = 0
         for _ in range(num_iterations):
             response = client.chat.completions.create(
                 model=model,
@@ -71,10 +76,11 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.5,
-                max_tokens=1000
+                max_tokens=4000  # Set the token limit to 4000
             )
             content = response.choices[0].message.content.strip()
             responses.append(content)
+            total_tokens += response.usage.total_tokens
         
         # Calculer la réponse la plus fréquente et l'indice de confiance
         most_common = max(set(responses), key=responses.count)
@@ -82,8 +88,9 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iteration
         
         logger.info(f"Réponse la plus fréquente : {most_common}")
         logger.info(f"Indice de confiance : {confidence}")
+        logger.info(f"Nombre total de tokens utilisés : {total_tokens}")
         
-        return most_common, confidence
+        return most_common, confidence, total_tokens
     except Exception as e:
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
@@ -92,7 +99,7 @@ def check_response_relevance(response: str, options: list) -> bool:
     response_lower = response.lower()
     return any(option.lower().split(':')[0].strip() in response_lower for option in options)
 
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool, bool]:
+def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool, bool, int]:
     options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
     prompt = f"""Analysez la question suivante et déterminez si elle concerne un problème juridique. Si c'est le cas, identifiez le domaine juridique et la prestation la plus pertinente.
 
@@ -109,7 +116,7 @@ Répondez au format suivant :
 3. Si non, expliquez brièvement pourquoi ce n'est pas un problème juridique.
 """
 
-    response, confidence = get_openai_response(prompt)
+    response, confidence, tokens_used = get_openai_response(prompt)
     lines = response.split('\n')
     
     is_legal = lines[0].lower().strip() == "oui"
@@ -122,7 +129,7 @@ Répondez au format suivant :
         is_relevant = False
         confidence = min(confidence, 0.4)  # Limite la confiance à 40% pour les sujets non juridiques
     
-    return domain.strip(), service.strip(), confidence, is_relevant, is_legal
+    return domain.strip(), service.strip(), confidence, is_relevant, is_legal, tokens_used
 
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int, int, list, Dict[str, Any]]:
@@ -166,7 +173,7 @@ def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int
         logger.exception(f"Erreur dans calculate_estimate: {str(e)}")
         raise
 
-def get_detailed_analysis(question: str, client_type: str, urgency: str, domaine: str, prestation: str) -> Tuple[str, Dict[str, Any], str]:
+def get_detailed_analysis(question: str, client_type: str, urgency: str, domaine: str, prestation: str) -> Tuple[str, Dict[str, Any], str, int]:
     prompt = f"""En tant qu'assistant juridique virtuel pour View Avocats, analysez la question suivante et expliquez votre raisonnement pour le choix du domaine juridique et de la prestation.
 
 Question : {question}
@@ -189,7 +196,7 @@ Listez les sources d'information utilisées pour cette analyse, si applicable.
 Assurez-vous que chaque partie est clairement séparée et que le JSON dans la partie 2 est valide et strict."""
 
     try:
-        response, _ = get_openai_response(prompt)
+        response, _, tokens_used = get_openai_response(prompt)
         logger.info(f"Réponse brute de l'API : {response}")
 
         parts = response.split('\n\n')
@@ -223,7 +230,7 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         
         sources = parts[2] if len(parts) > 2 else "Aucune source spécifique mentionnée."
 
-        return analysis, elements_used, sources
+        return analysis, elements_used, sources, tokens_used
     except Exception as e:
         logger.exception(f"Erreur lors de l'analyse détaillée : {e}")
         return "Une erreur s'est produite lors de l'analyse.", {
@@ -261,7 +268,7 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
                 
-                domaine, prestation, confidence, is_relevant, is_legal = analyze_question(question, client_type, urgency)
+                domaine, prestation, confidence, is_relevant, is_legal, tokens_used_analysis = analyze_question(question, client_type, urgency)
                 analysis_placeholder.empty()
 
                 if not is_legal:
@@ -270,8 +277,13 @@ def main():
 
                 if is_relevant or not is_legal:
                     estimation_basse, estimation_haute, calcul_details, tarifs_utilises = calculate_estimate(domaine, prestation, urgency)
-                    detailed_analysis, elements_used, sources = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
+                    detailed_analysis, elements_used, sources, tokens_used_detailed = get_detailed_analysis(question, client_type, urgency, domaine, prestation)
 
+                    st.subheader("Utilisation des tokens")
+                    st.write(f"Tokens utilisés pour l'analyse initiale : {tokens_used_analysis}")
+                    st.write(f"Tokens utilisés pour l'analyse détaillée : {tokens_used_detailed}")
+                    st.write(f"Total des tokens utilisés : {tokens_used_analysis + tokens_used_detailed}")
+                    
                     st.success("Analyse terminée. Voici les résultats :")
                     
                     st.subheader("Indice de confiance de l'analyse")
