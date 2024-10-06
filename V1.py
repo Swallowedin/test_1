@@ -5,7 +5,6 @@ import json
 import logging
 from typing import Tuple, Dict, Any
 import importlib.util
-import tiktoken
 from collections import Counter
 
 st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
@@ -31,9 +30,20 @@ def apply_custom_css():
         </style>
     """, unsafe_allow_html=True)
 
+try:
+    import tiktoken
+    TIKTOKEN_AVAILABLE = True
+except ImportError:
+    TIKTOKEN_AVAILABLE = False
+    st.warning("Le module tiktoken n'est pas installé. Le comptage des tokens sera moins précis.")
+
 def count_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
+    if TIKTOKEN_AVAILABLE:
+        encoding = tiktoken.encoding_for_model(model)
+        return len(encoding.encode(text))
+    else:
+        # Méthode de repli simple si tiktoken n'est pas disponible
+        return len(text.split())
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
