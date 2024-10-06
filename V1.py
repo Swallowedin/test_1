@@ -339,52 +339,43 @@ def main():
                 st.progress(confidence)
                 st.write(f"Confiance : {confidence:.2%}")
 
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.subheader("Résumé de l'estimation")
-                        st.write(f"**Domaine juridique :** {domaine if domaine else 'Non déterminé'}")
-                        st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
-                        st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
-                        st.subheader("Utilisation des tokens")
-                        st.write(f"Tokens utilisés pour l'analyse initiale : {tokens_used_analysis}")
-                        st.write(f"Tokens utilisés pour l'analyse détaillée : {tokens_used_detailed}")
-                        st.write(f"Total des tokens utilisés : {tokens_used_analysis + tokens_used_detailed}")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.subheader("Résumé de l'estimation")
+                    st.write(f"**Domaine juridique :** {domaine if domaine else 'Non déterminé'}")
+                    st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
+                    st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
+                    
+                    st.subheader("Détails du calcul")
+                    for detail in calcul_details:
+                        st.write(detail)
 
-            except Exception as e:
-                st.error(f"Une erreur s'est produite : {str(e)}")
-                logger.exception("Erreur dans le processus d'estimation")
-        else:
-            st.warning("Veuillez décrire votre cas avant de demander une estimation.")
-                        
-                        st.subheader("Détails du calcul")
-                        for detail in calcul_details:
-                            st.write(detail)
+                with col2:
+                    st.subheader("Éléments tarifaires utilisés")
+                    st.json(tarifs_utilises)
 
-                    with col2:
-                        st.subheader("Éléments tarifaires utilisés")
-                        st.json(tarifs_utilises)
+                    st.subheader("Éléments spécifiques pris en compte")
+                    if isinstance(elements_used, dict) and "domaine" in elements_used and "prestation" in elements_used:
+                        st.json(elements_used)
+                    else:
+                        st.warning("Les éléments spécifiques n'ont pas pu être analysés de manière optimale.")
+                        st.json(elements_used)
 
-                        st.subheader("Éléments spécifiques pris en compte")
-                        if isinstance(elements_used, dict) and "domaine" in elements_used and "prestation" in elements_used:
-                            st.json(elements_used)
-                        else:
-                            st.warning("Les éléments spécifiques n'ont pas pu être analysés de manière optimale.")
-                            st.json(elements_used)
+                st.subheader("Analyse détaillée")
+                st.write(detailed_analysis)
 
-                    st.subheader("Analyse détaillée")
-                    st.write(detailed_analysis)
+                if sources and sources != "Aucune source spécifique mentionnée.":
+                    st.subheader("Sources d'information")
+                    st.write(sources)
 
-                    if sources and sources != "Aucune source spécifique mentionnée.":
-                        st.subheader("Sources d'information")
-                        st.write(sources)
+                st.subheader("Utilisation des tokens")
+                st.write(f"Tokens utilisés pour l'analyse initiale : {tokens_used_analysis}")
+                st.write(f"Tokens utilisés pour l'analyse détaillée : {tokens_used_detailed}")
+                st.write(f"Total des tokens utilisés : {tokens_used_analysis + tokens_used_detailed}")
 
-                    st.markdown("---")
-                    st.markdown("### 💡 Alternative Recommandée")
-                    st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
-
-                else:
-                    st.warning("Malheureusement, je n'ai pas été en mesure d'identifier votre problème juridique de manière précise. Vous pouvez toutefois contacter directement le cabinet View Avocats par mail ou par téléphone au numéro suivant : [insérez le numéro ici]")
-                    st.info("Pour une assistance plus personnalisée, n'hésitez pas à nous contacter directement.")
+                st.markdown("---")
+                st.markdown("### 💡 Alternative Recommandée")
+                st.info("**Consultation initiale d'une heure** - Tarif fixe : 100 € HT")
 
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {str(e)}")
