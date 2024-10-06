@@ -1,18 +1,22 @@
 import streamlit as st
-from openai import OpenAI
 import os
-import importlib.util
+from openai import OpenAI
 import json
 import logging
 from typing import Tuple, Dict, Any
+import importlib.util
 
-# Configuration du logging
+# Configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configuration du client OpenAI
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY n'est pas défini dans les variables d'environnement")
 
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Chargement des modules
 def load_py_module(file_path: str, module_name: str):
     try:
         spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -23,10 +27,29 @@ def load_py_module(file_path: str, module_name: str):
         logger.error(f"Erreur lors du chargement du module {module_name}: {e}")
         return None
 
-# Chargement des modules
-prestations = load_py_module('./prestations-heures.py', 'prestations_heures').get_prestations()
-tarifs = load_py_module('./tarifs-prestations.py', 'tarifs_prestations').get_tarifs()
-instructions = load_py_module('./chatbot-instructions.py', 'consignes_chatbot').get_chatbot_instructions()
+prestations_module = load_py_module('./prestations-heures.py', 'prestations_heures')
+tarifs_module = load_py_module('./tarifs-prestations.py', 'tarifs_prestations')
+instructions_module = load_py_module('./chatbot-instructions.py', 'consignes_chatbot')
+
+prestations = prestations_module.get_prestations() if prestations_module else {}
+tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
+instructions = instructions_module.get_chatbot_instructions() if instructions_module else ""
+
+def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> str:
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5,
+            max_tokens=1000
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
+        raise
 
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str]:
     options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
@@ -41,16 +64,8 @@ Options de domaines et prestations :
 
 Répondez avec le domaine et la prestation la plus pertinente, séparés par une virgule."""
 
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": instructions},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    
-    answer = response.choices[0].message.content.strip()
-    return answer.split(',', 1) if ',' in answer else (answer, "prestation générale")
+    response = get_openai_response(prompt)
+    return response.split(',', 1) if ',' in response else (response, "prestation générale")
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int, int, list, Dict[str, Any]]:
     try:
@@ -104,23 +119,29 @@ Prestation recommandée : {prestation}
 
 Structurez votre réponse en trois parties :
 1. Analyse détaillée
-2. Éléments spécifiques utilisés (JSON)
-3. Sources d'information"""
+2. Éléments spécifiques utilisés (format JSON valide)
+3. Sources d'information
+
+Assurez-vous que la partie 2 soit un JSON valide et strict."""
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Vous êtes un assistant juridique expert."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.5,
-            max_tokens=1000
-        )
-
-        parts = response.choices[0].message.content.strip().split('\n\n', 2)
+        response = get_openai_response(prompt)
+        parts = response.split('\n\n', 2)
+        
         analysis = parts[0] if parts else "Analyse non disponible."
-        elements_used = json.loads(parts[1]) if len(parts) > 1 else {}
+        
+        elements_used = {}
+        if len(parts) > 1:
+            try:
+                json_lines = [line for line in parts[1].split('\n') if line.strip().startswith('{')]
+                if json_lines:
+                    elements_used = json.loads(''.join(json_lines))
+                else:
+                    logger.warning("Aucun JSON valide trouvé dans la réponse.")
+            except json.JSONDecodeError as e:
+                logger.error(f"Erreur de décodage JSON : {e}")
+                elements_used = {"error": "JSON invalide dans la réponse de l'API"}
+        
         sources = parts[2] if len(parts) > 2 else "Aucune source spécifique mentionnée."
 
         return analysis, elements_used, sources
@@ -161,9 +182,13 @@ def main():
                     st.subheader("Éléments tarifaires utilisés")
                     st.json(tarifs_utilises)
 
-                    if elements_used:
-                        st.subheader("Éléments spécifiques pris en compte")
+                    st.subheader("Éléments spécifiques pris en compte")
+                    if isinstance(elements_used, dict) and "error" not in elements_used:
                         st.json(elements_used)
+                    else:
+                        st.warning("Les éléments spécifiques n'ont pas pu être analysés correctement.")
+                        if "error" in elements_used:
+                            st.error(f"Erreur : {elements_used['error']}")
 
                 st.subheader("Analyse détaillée")
                 st.write(detailed_analysis)
@@ -178,6 +203,7 @@ def main():
 
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {str(e)}")
+                logger.exception("Erreur dans le processus d'estimation")
         else:
             st.warning("Veuillez décrire votre cas avant de demander une estimation.")
 
