@@ -81,7 +81,7 @@ prestations = prestations_module.get_prestations() if prestations_module else {}
 tarifs = tarifs_module.get_tarifs() if tarifs_module else {}
 instructions = instructions_module.get_chatbot_instructions() if instructions_module else ""
 
-def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 5) -> Tuple[list, int]:
+def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo", num_iterations: int = 3) -> Tuple[list, int]:
     try:
         responses = []
         total_tokens = 0
