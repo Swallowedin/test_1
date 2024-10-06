@@ -47,7 +47,9 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> str:
             temperature=0.5,
             max_tokens=1000
         )
-        return response.choices[0].message.content.strip()
+        content = response.choices[0].message.content.strip()
+        logger.info(f"Réponse brute de l'API OpenAI : {content}")
+        return content
     except Exception as e:
         logger.error(f"Erreur lors de l'appel à l'API OpenAI: {e}")
         raise
