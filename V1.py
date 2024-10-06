@@ -371,7 +371,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    st.write("© 2024 View Avocats. Tous droits réservés.")
-
-if __name__ == "__main__":
-    main()
