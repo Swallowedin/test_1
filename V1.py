@@ -158,25 +158,38 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         if len(parts) > 1:
             try:
                 # Recherche de la partie JSON dans la réponse
-                json_part = next((part for part in parts if part.strip().startswith('{')), None)
+                json_part = next((part for part in parts if '{' in part and '}' in part), None)
                 if json_part:
-                    elements_used = json.loads(json_part)
+                    # Extraction du JSON de la partie trouvée
+                    json_str = json_part[json_part.index('{'):json_part.rindex('}')+1]
+                    elements_used = json.loads(json_str)
                 else:
                     logger.warning("Aucun JSON valide trouvé dans la réponse.")
-                    elements_used = {"error": "Aucun JSON trouvé dans la réponse"}
+                    elements_used = {
+                        "domaine": {"nom": domaine, "description": "Information non fournie par l'API"},
+                        "prestation": {"nom": prestation, "description": "Information non fournie par l'API"}
+                    }
             except json.JSONDecodeError as e:
                 logger.error(f"Erreur de décodage JSON : {e}")
-                elements_used = {"error": f"JSON invalide dans la réponse de l'API: {str(e)}"}
+                elements_used = {
+                    "domaine": {"nom": domaine, "description": "Erreur dans l'analyse de la réponse"},
+                    "prestation": {"nom": prestation, "description": "Erreur dans l'analyse de la réponse"}
+                }
         else:
-            elements_used = {"error": "Réponse de l'API incomplète"}
+            elements_used = {
+                "domaine": {"nom": domaine, "description": "Information non disponible"},
+                "prestation": {"nom": prestation, "description": "Information non disponible"}
+            }
         
         sources = parts[2] if len(parts) > 2 else "Aucune source spécifique mentionnée."
 
         return analysis, elements_used, sources
     except Exception as e:
         logger.exception(f"Erreur lors de l'analyse détaillée : {e}")
-        return "Une erreur s'est produite lors de l'analyse.", {"error": str(e)}, "Non disponible en raison d'une erreur."
-
+        return "Une erreur s'est produite lors de l'analyse.", {
+            "domaine": {"nom": domaine, "description": "Erreur dans l'analyse"},
+            "prestation": {"nom": prestation, "description": "Erreur dans l'analyse"}
+        }, "Non disponible en raison d'une erreur."
 def main():
     st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
     st.title("🏛️ View Avocats - Estimateur de devis")
