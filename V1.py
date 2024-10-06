@@ -15,9 +15,19 @@ def apply_custom_css():
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
+            /* Cache le message de chargement */
+            .stApp > header {
+                background-color: transparent;
+            }
+            .stApp {
+                margin-top: -80px;
+            }
+            /* Cache le spinner de chargement */
+            .stSpinner {
+                display: none !important;
+            }
         </style>
     """, unsafe_allow_html=True)
-
     
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
