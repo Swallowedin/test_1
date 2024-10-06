@@ -110,7 +110,7 @@ def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int
         raise
 
 def get_detailed_analysis(question: str, client_type: str, urgency: str, domaine: str, prestation: str) -> Tuple[str, Dict[str, Any], str]:
-    prompt = f"""Analysez la question suivante et expliquez votre raisonnement pour le choix du domaine juridique et de la prestation.
+    prompt = f"""En tant qu'assistant juridique virtuel pour View Avocats, analysez la question suivante et expliquez votre raisonnement pour le choix du domaine juridique et de la prestation.
 
 Question : {question}
 Type de client : {client_type}
@@ -119,13 +119,17 @@ Domaine recommandé : {domaine}
 Prestation recommandée : {prestation}
 
 Structurez votre réponse en trois parties clairement séparées par des lignes vides :
-1. Analyse détaillée
-2. Éléments spécifiques utilisés (format JSON valide)
-3. Sources d'information
 
-Pour la partie 2, fournissez un objet JSON valide et strict, avec des guillemets doubles pour toutes les clés et les valeurs string.
-Exemple de format pour la partie 2 :
-{{"domaine": {{"nom": "Droit du travail", "description": "Encadre les relations entre employeurs et salariés"}}, "prestation": {{"nom": "Licenciement", "description": "Assistance juridique pour contester un licenciement"}}}}"""
+1. Analyse détaillée :
+Fournissez une analyse concise mais détaillée du cas, en tenant compte du type de client et du degré d'urgence.
+
+2. Éléments spécifiques utilisés (format JSON strict) :
+{{"domaine": {{"nom": "nom_du_domaine", "description": "description_du_domaine"}}, "prestation": {{"nom": "nom_de_la_prestation", "description": "description_de_la_prestation"}}}}
+
+3. Sources d'information :
+Listez les sources d'information utilisées pour cette analyse, si applicable.
+
+Assurez-vous que chaque partie est clairement séparée et que le JSON dans la partie 2 est valide et strict."""
 
     try:
         response = get_openai_response(prompt)
