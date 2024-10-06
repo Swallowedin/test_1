@@ -5,6 +5,8 @@ import json
 import logging
 from typing import Tuple, Dict, Any
 import importlib.util
+import tiktoken
+from collections import Counter
 
 st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
 
@@ -148,38 +150,6 @@ Répondez au format JSON strict suivant :
 def check_response_relevance(response: str, options: list) -> bool:
     response_lower = response.lower()
     return any(option.lower().split(':')[0].strip() in response_lower for option in options)
-
-def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str, float, bool, bool, int]:
-    options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
-    prompt = f"""Analysez la question suivante et déterminez si elle concerne un problème juridique. Si c'est le cas, identifiez le domaine juridique et la prestation la plus pertinente.
-
-Question : {question}
-Type de client : {client_type}
-Degré d'urgence : {urgency}
-
-Options de domaines et prestations :
-{' '.join(options)}
-
-Répondez au format suivant :
-1. Est-ce un problème juridique ? (Oui/Non)
-2. Si oui, indiquez le domaine et la prestation, séparés par une virgule.
-3. Si non, expliquez brièvement pourquoi ce n'est pas un problème juridique.
-"""
-
-    response, confidence, tokens_used = get_openai_response(prompt)
-    lines = response.split('\n')
-    
-    is_legal = lines[0].lower().strip() == "oui"
-    
-    if is_legal:
-        domain, service = lines[1].split(',', 1) if len(lines) > 1 and ',' in lines[1] else ("", "")
-        is_relevant = check_response_relevance(lines[1], options)
-    else:
-        domain, service = "", ""
-        is_relevant = False
-        confidence = min(confidence, 0.4)  # Limite la confiance à 40% pour les sujets non juridiques
-    
-    return domain.strip(), service.strip(), confidence, is_relevant, is_legal, tokens_used
 
 
 def calculate_estimate(domaine: str, prestation: str, urgency: str) -> Tuple[int, int, list, Dict[str, Any]]:
