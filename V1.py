@@ -6,6 +6,16 @@ import logging
 from typing import Tuple, Dict, Any
 import importlib.util
 
+# Fonction pour appliquer le CSS personnalisé
+def apply_custom_css():
+    st.markdown("""
+        <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+        </style>
+    """, unsafe_allow_html=True)
+    
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -209,6 +219,9 @@ Assurez-vous que chaque partie est clairement séparée et que le JSON dans la p
         }, "Non disponible en raison d'une erreur."
 
 def main():
+    # Appliquer le CSS personnalisé
+    apply_custom_css()
+    
     st.set_page_config(page_title="View Avocats - Devis en ligne", page_icon="⚖️", layout="wide")
     st.title("🏛️ View Avocats - Estimateur de devis")
 
