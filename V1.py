@@ -6,10 +6,11 @@ import logging
 from typing import Tuple, Dict, Any
 import importlib.util
 
-# Configuration
+# Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Configuration du client OpenAI
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY n'est pas défini dans les variables d'environnement")
@@ -117,30 +118,39 @@ Degré d'urgence : {urgency}
 Domaine recommandé : {domaine}
 Prestation recommandée : {prestation}
 
-Structurez votre réponse en trois parties :
+Structurez votre réponse en trois parties clairement séparées par des lignes vides :
 1. Analyse détaillée
 2. Éléments spécifiques utilisés (format JSON valide)
 3. Sources d'information
 
-Assurez-vous que la partie 2 soit un JSON valide et strict."""
+Pour la partie 2, fournissez un objet JSON valide et strict, avec des guillemets doubles pour toutes les clés et les valeurs string.
+Exemple de format pour la partie 2 :
+{{"domaine": {{"nom": "Droit du travail", "description": "Encadre les relations entre employeurs et salariés"}}, "prestation": {{"nom": "Licenciement", "description": "Assistance juridique pour contester un licenciement"}}}}"""
 
     try:
         response = get_openai_response(prompt)
-        parts = response.split('\n\n', 2)
+        logger.info(f"Réponse brute de l'API : {response}")
+
+        # Séparation des parties de la réponse
+        parts = response.split('\n\n')
         
-        analysis = parts[0] if parts else "Analyse non disponible."
+        analysis = parts[0] if len(parts) > 0 else "Analyse non disponible."
         
         elements_used = {}
         if len(parts) > 1:
             try:
-                json_lines = [line for line in parts[1].split('\n') if line.strip().startswith('{')]
-                if json_lines:
-                    elements_used = json.loads(''.join(json_lines))
+                # Recherche de la partie JSON dans la réponse
+                json_part = next((part for part in parts if part.strip().startswith('{')), None)
+                if json_part:
+                    elements_used = json.loads(json_part)
                 else:
                     logger.warning("Aucun JSON valide trouvé dans la réponse.")
+                    elements_used = {"error": "Aucun JSON trouvé dans la réponse"}
             except json.JSONDecodeError as e:
                 logger.error(f"Erreur de décodage JSON : {e}")
-                elements_used = {"error": "JSON invalide dans la réponse de l'API"}
+                elements_used = {"error": f"JSON invalide dans la réponse de l'API: {str(e)}"}
+        else:
+            elements_used = {"error": "Réponse de l'API incomplète"}
         
         sources = parts[2] if len(parts) > 2 else "Aucune source spécifique mentionnée."
 
@@ -193,7 +203,7 @@ def main():
                 st.subheader("Analyse détaillée")
                 st.write(detailed_analysis)
 
-                if sources:
+                if sources and sources != "Aucune source spécifique mentionnée.":
                     st.subheader("Sources d'information")
                     st.write(sources)
 
