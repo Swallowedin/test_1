@@ -346,9 +346,9 @@ def main():
                         st.write(f"**Prestation :** {prestation if prestation else 'Non déterminée'}")
                         st.write(f"**Estimation :** Entre {estimation_basse} €HT et {estimation_haute} €HT")
                         st.subheader("Utilisation des tokens")
-                st.write(f"Tokens utilisés pour l'analyse initiale : {tokens_used_analysis}")
-                st.write(f"Tokens utilisés pour l'analyse détaillée : {tokens_used_detailed}")
-                st.write(f"Total des tokens utilisés : {tokens_used_analysis + tokens_used_detailed}")
+                        st.write(f"Tokens utilisés pour l'analyse initiale : {tokens_used_analysis}")
+                        st.write(f"Tokens utilisés pour l'analyse détaillée : {tokens_used_detailed}")
+                        st.write(f"Total des tokens utilisés : {tokens_used_analysis + tokens_used_detailed}")
 
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {str(e)}")
