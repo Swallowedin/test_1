@@ -56,7 +56,7 @@ def get_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> str:
 
 def analyze_question(question: str, client_type: str, urgency: str) -> Tuple[str, str]:
     options = [f"{domaine}: {', '.join(prestations_domaine.keys())}" for domaine, prestations_domaine in prestations.items()]
-    prompt = f"""Analysez la question suivante et identifiez le domaine juridique et la prestation la plus pertinente.
+    prompt = f"""Analysez la question suivante et identifiez le domaine juridique et la prestation la plus pertinente. N'essaye pas d'analyser à l'aide d'élément en JSON
 
 Question : {question}
 Type de client : {client_type}
