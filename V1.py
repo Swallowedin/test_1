@@ -7,7 +7,7 @@ from typing import Tuple, Dict, Any
 import importlib.util
 from collections import Counter
 
-st.set_page_config(page_title="View Avocats - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Estim'IA - Obtenez une estimation grâce à l'IA", page_icon="⚖️", layout="wide")
 
 # Fonction pour appliquer le CSS personnalisé
 def apply_custom_css():
@@ -281,8 +281,8 @@ def display_loading_animation():
             <path d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,1,1,1,8-8A8,8,0,0,1,12,20Z" opacity=".25"/>
             <path d="M12,4a8,8,0,0,1,7.89,6.7A1.53,1.53,0,0,0,21.38,12h0a1.5,1.5,0,0,0,1.48-1.75,11,11,0,0,0-21.72,0A1.5,1.5,0,0,0,2.62,12h0a1.53,1.53,0,0,0,1.49-1.3A8,8,0,0,1,12,4Z"/>
         </svg>
-        <p style="margin-top: 10px; font-weight: bold;">Notre IA surpuissante analyse votre cas juridique...</p>
-        <p>Préparez-vous à découvrir une analyse juridique révolutionnaire !</p>
+        <p style="margin-top: 10px; font-weight: bold;">Notre intelligence artificielle analyse votre demande...</p>
+        <p>Votre estimation arrive dans quelques secondes !</p>
     </div>
     """, unsafe_allow_html=True)
 
