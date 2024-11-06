@@ -1,145 +1,199 @@
-import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ArrowRight, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import streamlit as st
+import time
+from datetime import datetime, timedelta
 
-const EstimIA = () => {
-  const [step, setStep] = useState(1);
-  
-  const ViewButton = ({ children, onClick, className = '' }) => (
-    <button
-      onClick={onClick}
-      className={`
-        bg-[#2F4F4F] hover:bg-[#1a2e2e] 
-        text-white font-medium py-2 px-6 
-        rounded transition-all duration-200 
-        flex items-center gap-2
-        ${className}
-      `}
-    >
-      {children}
-    </button>
-  );
+def apply_view_style():
+    """Applique le style View Avocats"""
+    st.markdown("""
+        <style>
+            /* Style général */
+            .stApp {
+                background-color: #f8f9fa;
+            }
+            
+            /* Couleurs View */
+            .view-primary {
+                color: #2F4F4F !important;
+            }
+            
+            /* Header personnalisé */
+            .view-header {
+                background-color: white;
+                padding: 2rem;
+                border-radius: 10px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                text-align: center;
+                margin-bottom: 2rem;
+            }
+            
+            /* Cards */
+            .view-card {
+                background-color: white;
+                padding: 1.5rem;
+                border-radius: 10px;
+                border-left: 4px solid #2F4F4F;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin-bottom: 1rem;
+            }
+            
+            /* Boutons */
+            .stButton>button {
+                background-color: #2F4F4F;
+                color: white;
+                border: none;
+                padding: 0.5rem 2rem;
+                border-radius: 5px;
+                font-weight: 500;
+                width: 100%;
+            }
+            
+            .stButton>button:hover {
+                background-color: #1a2e2e;
+            }
+            
+            /* Inputs */
+            .stTextInput>div>div>input {
+                border-radius: 5px;
+            }
+            
+            .stTextArea>div>textarea {
+                border-radius: 5px;
+            }
+            
+            /* Select */
+            .stSelectbox>div>div {
+                border-radius: 5px;
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
-  const ViewCard = ({ children, className = '' }) => (
-    <div className={`
-      bg-white rounded-lg shadow-md p-6 
-      border-l-4 border-[#2F4F4F]
-      ${className}
-    `}>
-      {children}
-    </div>
-  );
+def header():
+    """Affiche l'en-tête"""
+    st.markdown("""
+        <div class="view-header">
+            <h1 style="color: #2F4F4F; font-size: 2.5rem; margin-bottom: 1rem;">
+                Estim'IA by View Avocats
+            </h1>
+            <p style="color: #666; font-size: 1.2rem;">
+                Estimation gratuite et immédiate de vos prestations juridiques
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
-  return (
-    <div className="max-w-5xl mx-auto p-6 bg-gray-50">
-      {/* En-tête avec logo View */}
-      <div className="flex justify-center mb-8">
-        <img 
-          src="/api/placeholder/200/80" 
-          alt="View Avocats"
-          className="h-20"
-        />
-      </div>
-
-      {/* Titre principal avec style View */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-[#2F4F4F] mb-4">
-          Estim'IA by View Avocats
-        </h1>
-        <p className="text-gray-600 text-lg">
-          Estimation gratuite et immédiate de vos prestations juridiques
-        </p>
-      </div>
-
-      {/* Points clés */}
-      <div className="grid md:grid-cols-3 gap-6 mb-12">
-        <ViewCard>
-          <div className="flex items-start gap-4">
-            <Clock className="text-[#2F4F4F] h-8 w-8 mt-1" />
-            <div>
-              <h3 className="font-semibold text-[#2F4F4F] mb-2">Rapide</h3>
-              <p className="text-gray-600">Estimation en moins de 2 minutes</p>
+def feature_cards():
+    """Affiche les points clés"""
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+            <div class="view-card">
+                <h3 style="color: #2F4F4F; margin-bottom: 0.5rem;">⚡ Rapide</h3>
+                <p style="color: #666;">Estimation en moins de 2 minutes</p>
             </div>
-          </div>
-        </ViewCard>
-
-        <ViewCard>
-          <div className="flex items-start gap-4">
-            <CheckCircle2 className="text-[#2F4F4F] h-8 w-8 mt-1" />
-            <div>
-              <h3 className="font-semibold text-[#2F4F4F] mb-2">Fiable</h3>
-              <p className="text-gray-600">IA entraînée sur nos prestations</p>
+        """, unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown("""
+            <div class="view-card">
+                <h3 style="color: #2F4F4F; margin-bottom: 0.5rem;">✓ Fiable</h3>
+                <p style="color: #666;">IA entraînée sur nos prestations</p>
             </div>
-          </div>
-        </ViewCard>
-
-        <ViewCard>
-          <div className="flex items-start gap-4">
-            <AlertCircle className="text-[#2F4F4F] h-8 w-8 mt-1" />
-            <div>
-              <h3 className="font-semibold text-[#2F4F4F] mb-2">Sans engagement</h3>
-              <p className="text-gray-600">Simple estimation indicative</p>
+        """, unsafe_allow_html=True)
+        
+    with col3:
+        st.markdown("""
+            <div class="view-card">
+                <h3 style="color: #2F4F4F; margin-bottom: 0.5rem;">🔒 Sans engagement</h3>
+                <p style="color: #666;">Simple estimation indicative</p>
             </div>
-          </div>
-        </ViewCard>
-      </div>
+        """, unsafe_allow_html=True)
 
-      {/* Formulaire principal */}
-      <Card className="mb-8">
-        <CardHeader className="border-b bg-gray-50">
-          <CardTitle className="text-[#2F4F4F]">
+def main_form():
+    """Affiche le formulaire principal"""
+    st.markdown('<div class="view-card">', unsafe_allow_html=True)
+    
+    st.markdown("""
+        <h2 style="color: #2F4F4F; font-size: 1.5rem; margin-bottom: 1.5rem;">
             Décrivez votre situation
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Vous êtes :
-              </label>
-              <select className="w-full p-2 border rounded focus:ring-2 focus:ring-[#2F4F4F] focus:border-transparent">
-                <option value="particulier">Particulier</option>
-                <option value="professionnel">Professionnel</option>
-              </select>
-            </div>
+        </h2>
+    """, unsafe_allow_html=True)
+    
+    client_type = st.selectbox(
+        "Vous êtes :",
+        ["Particulier", "Professionnel"]
+    )
+    
+    if client_type == "Professionnel":
+        sub_type = st.selectbox(
+            "Type d'organisation :",
+            ["Entreprise", "Profession libérale", "Association", "Administration"]
+        )
+        
+        if sub_type == "Entreprise":
+            st.selectbox(
+                "Taille de l'entreprise :",
+                ["TPE (< 10 salariés)", "PME (10-250)", "ETI (250-5000)", "Grande entreprise"]
+            )
+    
+    urgency = st.selectbox(
+        "Degré d'urgence :",
+        ["Normal", "Urgent"]
+    )
+    
+    situation = st.text_area(
+        "Votre situation :",
+        placeholder="Décrivez votre situation juridique en quelques lignes...",
+        height=150
+    )
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    if st.button("Obtenir une estimation gratuite"):
+        if situation:
+            with st.spinner("Analyse en cours..."):
+                # Simulation du temps de traitement
+                time.sleep(2)
+                display_estimation()
+        else:
+            st.warning("Veuillez décrire votre situation avant de demander une estimation.")
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Degré d'urgence :
-              </label>
-              <select className="w-full p-2 border rounded focus:ring-2 focus:ring-[#2F4F4F] focus:border-transparent">
-                <option value="normal">Normal</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
+def display_estimation():
+    """Affiche l'estimation"""
+    st.markdown("""
+        <div class="view-card" style="text-align: center;">
+            <h3 style="color: #2F4F4F; margin-bottom: 1rem;">Estimation de la prestation</h3>
+            <p style="font-size: 2rem; color: #2F4F4F; font-weight: bold;">À partir de 800 €HT</p>
+            <p style="color: #666; font-size: 0.9rem;">Pour consultation juridique • Droit des affaires</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Votre situation :
-              </label>
-              <textarea 
-                className="w-full p-3 border rounded h-32 focus:ring-2 focus:ring-[#2F4F4F] focus:border-transparent"
-                placeholder="Décrivez votre situation juridique en quelques lignes..."
-              />
-            </div>
+def footer():
+    """Affiche le pied de page"""
+    st.markdown("""
+        <div style="text-align: center; padding: 2rem; color: #666; font-size: 0.9rem;">
+            <p>© 2024 View Avocats - Cabinet d'avocats en droit des affaires</p>
+            <p style="margin-top: 0.5rem;">
+                Cette estimation est fournie à titre indicatif et ne constitue pas un engagement contractuel
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
-            <ViewButton className="w-full justify-center">
-              Obtenir une estimation gratuite
-              <ArrowRight className="h-4 w-4" />
-            </ViewButton>
-          </div>
-        </CardContent>
-      </Card>
+def main():
+    # Configuration de la page
+    st.set_page_config(
+        page_title="Estim'IA - View Avocats",
+        page_icon="⚖️",
+        layout="wide"
+    )
+    
+    # Application du style
+    apply_view_style()
+    
+    # Affichage des composants
+    header()
+    feature_cards()
+    main_form()
+    footer()
 
-      {/* Footer avec mentions légales */}
-      <div className="text-center text-sm text-gray-500">
-        <p>© 2024 View Avocats - Cabinet d'avocats en droit des affaires</p>
-        <p className="mt-1">
-          Cette estimation est fournie à titre indicatif et ne constitue pas un engagement contractuel
-        </p>
-      </div>
-    </div>
-  );
-};
-
-export default EstimIA;
+if __name__ == "__main__":
+    main()
